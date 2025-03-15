@@ -5,9 +5,11 @@ import re
 import time
 import threading
 import os
+from datetime import datetime, timedelta
+from urllib.parse import quote
 
 # Define the base URL template
-base_url = "https://www.ebay.com/sch/i.html?_udlo=100&_fsrp=1&_from=R40&_ipg=240&_nkw=PSA&_sacat=64482&Grade=8%7C8%252E5%7C9%7C9%252E5%7C10%7C%21&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2025&_sop=10&_oaa=1&Sport=Baseball%7CFootball%7CBasketball&_dcat=212&LH_ItemCondition=3&rt=nc&LH_All=1&_pgn={}"
+base_url = "https://www.ebay.com/sch/i.html?_oaa=1&_dcat=212&_udlo=100&_fsrp=1&_from=R40&Grade=8%7C8%252E5%7C9%7C9%252E5%7C10%7C%21&_ipg=240&Sport=Baseball%7CFootball%7CBasketball&_sacat=64482&_nkw=PSA&_sop=10&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2025&LH_PrefLoc=2&rt=nc&LH_All=1&_pgn={}"
 
 start_time = time.time()
 
@@ -17,7 +19,7 @@ def clean_set_name(set_name):
 def print_elapsed_time():
     while True:
         elapsed_time = time.time() - start_time
-        print(f"Total Elapsed Time: {elapsed_time:.2f} seconds", end='\r')
+        # print(f"Total Elapsed Time: {elapsed_time:.2f} seconds", end='\r')
         time.sleep(1)  # Update every second
 
 elapsed_time_thread = threading.Thread(target=print_elapsed_time, daemon=True)
@@ -29,6 +31,36 @@ os.makedirs(output_dir, exist_ok=True)
 
 page = 1
 data = []
+
+# Get yesterday's date
+yesterday = (datetime.now() - timedelta(days=1)).date()
+
+def fetch_price_data(title, buying_type):
+    encoded_title = quote(title)
+    if buying_type == "Buy It Now":
+        price_url = f"https://www.ebay.com/sch/i.html?_dcat=212&_udlo=100&_fsrp=1&_from=R40&LH_PrefLoc=2&_ipg=240&LH_Complete=1&LH_Sold=1&_nkw={encoded_title}&_sacat=64482&Grade=10%7C9%252E5%7C9%7C8%252E5%7C8%7C%21&Sport=Baseball%7CBasketball%7CFootball&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2024%252D25%7C2025&_sop=10&rt=nc&LH_BIN=1&_pgn=1"
+    else:  # Auction
+        price_url = f"https://www.ebay.com/sch/i.html?_dcat=212&_udlo=100&_fsrp=1&_from=R40&LH_PrefLoc=2&_ipg=240&LH_Complete=1&LH_Sold=1&_nkw={encoded_title}&_sacat=64482&Grade=10%7C9%252E5%7C9%7C8%252E5%7C8%7C%21&Sport=Baseball%7CBasketball%7CFootball&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2024%252D25%7C2025&LH_Auction=1&_sop=10&_pgn=1"
+
+    response = requests.get(price_url)
+    if response.status_code != 200:
+        print(f"Failed to retrieve price data: {response.status_code}")
+        return None, None, None, 0
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    price_elements = soup.find_all('span', class_='s-item__price')
+    prices = []
+
+    for price_elem in price_elements:
+        price_text = price_elem.get_text(strip=True).replace('$', '').replace(',', '').strip()
+        prices.append(float(price_text))
+    if not prices:
+        return None, None, None, 0
+
+    min_price = min(prices)
+    max_price = max(prices)
+    avg_price = sum(prices) / len(prices)
+    return min_price, max_price, avg_price, len(prices)
 
 try:
     while True:
@@ -44,22 +76,42 @@ try:
         items = items_container.find_all("li", attrs={"data-view": re.compile(r"^mi:1686\|iid:(\d+)$")})
         items_count = len(items)
 
-        print(f"Auction items found on page {page}: {items_count}")
+        print(f"New items found on page {page}: {items_count}")
 
-        # Continue scraping this page even if items_count < 240
         for item in items:
             title_element = item.find('div', class_='s-item__title')
             title = ""
             if title_element:
                 title_text = " ".join(span.get_text(strip=True) for span in title_element.find_all('span'))
                 title = re.sub(r'New Listing\s*', '', title_text).strip()
-
             price_span = item.find('span', class_='s-item__price')
             price = price_span.get_text(strip=True) if price_span else "N/A"
-            
             link = item.find('a', class_='s-item__link')['href']
             product_response = requests.get(link)
             product_soup = BeautifulSoup(product_response.text, 'html.parser')
+
+            # Extract Listing Date
+            listing_date_element = item.find('span', class_='s-item__dynamic s-item__listingDate')
+            listing_date = ""
+            if listing_date_element:
+                listing_date_text = listing_date_element.find('span', class_='BOLD').get_text(strip=True)
+                current_year = datetime.now().year
+                if len(listing_date_text.split('-')) == 2:  # Format is likely "Mar-14"
+                    listing_date_text = f"{current_year}-{listing_date_text}"  # Append current year
+                    listing_date_text = listing_date_text.replace('-', ' ')  # Change to "2025 Mar 14"
+                listing_date = datetime.strptime(listing_date_text, '%Y %b %d %H:%M')
+                
+            if listing_date.date() != yesterday:
+                print("Listing date is not yesterday. Stopping the scraping process.")
+                break  # Stop scraping if the listing date is not yesterday
+
+            # Extract Image URL
+            image_element = item.find('div', class_='s-item__image')
+            image_url = ""
+            if image_element:
+                img_tag = image_element.find('img')
+                if img_tag:
+                    image_url = img_tag['src']
 
             # Initialize Buying Type
             buying_type = "Buy It Now"  # Default to "Buy It Now"
@@ -67,9 +119,11 @@ try:
             # Check for Auction
             if product_soup.find('div', {'data-testid': 'x-bid-action'}):
                 buying_type = "Auction"
-            print("buying type: ", buying_type)
+
+            # Fetch card details
             sport_val = season_year = set_name = variation = player_name = card_number = grade = ""
 
+            # Extract specifications
             specifications_section = product_soup.find('section', class_='product-spectification')
             if specifications_section:
                 details = specifications_section.find_all('li')
@@ -93,7 +147,8 @@ try:
                             card_number = value_text 
                         elif name_text == "Grade":
                             grade = value_text
-                            
+
+            # Alternatively, check another section for specifications
             specifications_section_new = product_soup.find('div', {'data-testid': 'ux-layout-section-evo'})
             if specifications_section_new:
                 details = specifications_section_new.find_all('dl')
@@ -116,6 +171,16 @@ try:
                     elif label == "Grade":
                         grade = value
 
+            # Fetch price data
+            min_price, max_price, avg_price, compared_items = fetch_price_data(title, buying_type)
+
+            undervalued_status = ""
+            if min_price is not None and avg_price is not None:
+                if float(price.replace('$', '').replace(',', '').strip()) < 0.8 * avg_price:
+                    undervalued_status = "Undervalued"
+            print(price, min_price, max_price, avg_price, undervalued_status)
+            print("-------------------------------------------------------------")
+
             data.append({
                 "Title": title,
                 "Buying Type": buying_type,
@@ -127,8 +192,16 @@ try:
                 "Price": price,
                 "Card Number": card_number,
                 "Grade": grade,
-                "Card Link": link
+                "Card Link": link,
+                "Listing Date": listing_date.strftime('%Y-%m-%d %H:%M:%S'),  # Format as needed
+                "Image URL": image_url,
+                "Min": min_price,
+                "Max": max_price,
+                "Average": avg_price,
+                "Compared Items": compared_items,
+                "Undervalued Status": undervalued_status
             })
+
 
         # Save the collected data for the current page
         df = pd.DataFrame(data)
