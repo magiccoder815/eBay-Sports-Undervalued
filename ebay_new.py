@@ -35,6 +35,14 @@ data = []
 # Get yesterday's date
 yesterday = (datetime.now() - timedelta(days=1)).date()
 
+def get_price(price_text):
+    price_match = re.match(r'(\d+\.\d+)(?:to|–)?', price_text)
+    if price_match:
+        price = float(price_match.group(1))
+    else:
+        price = None  # Set default value if no match is found
+    return price
+
 def fetch_price_data(title, buying_type):
     encoded_title = quote(title)
     if buying_type == "Buy It Now":
@@ -48,12 +56,19 @@ def fetch_price_data(title, buying_type):
         return None, None, None, 0
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    price_elements = soup.find_all('span', class_='s-item__price')
+    
+    items_container = soup.find('ul', class_='srp-results srp-list clearfix')
+    items = items_container.find_all("li", attrs={"data-view": re.compile(r"^mi:1686\|iid:(\d+)$")})
     prices = []
+    for item in items:
 
-    for price_elem in price_elements:
-        price_text = price_elem.get_text(strip=True).replace('$', '').replace(',', '').strip()
-        prices.append(float(price_text))
+        price_span = item.find('span', class_='s-item__price')
+        price_text = price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
+        # Extract the minimum price from a range if it exists
+        price = get_price(price_text)
+        
+        prices.append(price)
+
     if not prices:
         return None, None, None, 0
 
@@ -72,7 +87,7 @@ try:
             break
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        items_container = soup.find('div', id='srp-river-results')
+        items_container = soup.find('ul', class_='srp-results srp-list clearfix')
         items = items_container.find_all("li", attrs={"data-view": re.compile(r"^mi:1686\|iid:(\d+)$")})
         items_count = len(items)
 
@@ -85,7 +100,10 @@ try:
                 title_text = " ".join(span.get_text(strip=True) for span in title_element.find_all('span'))
                 title = re.sub(r'New Listing\s*', '', title_text).strip()
             price_span = item.find('span', class_='s-item__price')
-            price = price_span.get_text(strip=True) if price_span else "N/A"
+            price_text = price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
+
+            price = get_price(price_text)
+
             link = item.find('a', class_='s-item__link')['href']
             product_response = requests.get(link)
             product_soup = BeautifulSoup(product_response.text, 'html.parser')
@@ -172,11 +190,12 @@ try:
                         grade = value
 
             # Fetch price data
+            print(price)
             min_price, max_price, avg_price, compared_items = fetch_price_data(title, buying_type)
 
             undervalued_status = ""
             if min_price is not None and avg_price is not None:
-                if float(price.replace('$', '').replace(',', '').strip()) < 0.8 * avg_price:
+                if price < 0.8 * avg_price:
                     undervalued_status = "Undervalued"
             print(price, min_price, max_price, avg_price, undervalued_status)
             print("-------------------------------------------------------------")
@@ -189,15 +208,15 @@ try:
                 "Set": set_name,
                 "Variation": variation,
                 "Player Name": player_name,
-                "Price": price,
+                "Price": f"${price}",
                 "Card Number": card_number,
                 "Grade": grade,
                 "Card Link": link,
                 "Listing Date": listing_date.strftime('%Y-%m-%d %H:%M:%S'),  # Format as needed
                 "Image URL": image_url,
-                "Min": min_price,
-                "Max": max_price,
-                "Average": avg_price,
+                "Min": f"${min_price}",
+                "Max": f"${max_price}",
+                "Average": f"${avg_price:.2f}",
                 "Compared Items": compared_items,
                 "Undervalued Status": undervalued_status
             })
