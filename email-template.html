@@ -68,11 +68,13 @@
       border-radius: 8px;
       margin-bottom: 24px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease-in-out;
     }
     
     .card:hover {
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transform: scale(1.05);
     }
     
     .card-inner {
@@ -81,9 +83,10 @@
     }
     
     .card-image {
-      background-color: #f9fafb;
       display: flex;
       justify-content: center;
+      background-color: #f9fafb;
+      padding: 20px;
     }
     
     .card-image img {
