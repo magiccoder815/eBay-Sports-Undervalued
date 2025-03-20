@@ -8,11 +8,93 @@ import os
 from datetime import datetime, timedelta
 from urllib.parse import quote
 import numpy as np
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 # Define the base URL template
 base_url = "https://www.ebay.com/sch/i.html?_oaa=1&_dcat=212&_udlo=100&_fsrp=1&_from=R40&Grade=8%7C8%252E5%7C9%7C9%252E5%7C10%7C%21&_ipg=240&Sport=Baseball%7CFootball%7CBasketball&_sacat=64482&_nkw=PSA&_sop=10&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2025&LH_PrefLoc=2&rt=nc&LH_All=1&_pgn={}"
 
 start_time = time.time()
+
+def send_email(undervalued_cards):
+    sender_email = "igorkovalevych94@gmail.com"  # Replace with your email
+    sender_password = "gzpp wrgf xtzw agoj"  # Replace with your email password
+    receiver_email = "superphantom2035@gmail.com"
+    
+    # Create the email content
+    subject = "Undervalued Cards Alert"
+    # Load the HTML template
+    with open('email-template.html', 'r') as file:
+        template = file.read()
+
+    # Generate the cards HTML
+    cards_html = ""
+    for card in undervalued_cards:
+        cards_html += f"""
+        <div class="card">
+            <div class="card-inner">
+                <div class="card-image">
+                    <img src="{card['Image URL']}" alt="{card['Title']}">
+                </div>
+                <div class="card-details">
+                    <h3 class="card-title">
+                        <a href="{card['Card Link']}">{card['Title']}</a>
+                    </h3>
+                
+                    <div class="card-data">
+                        <span class="card-label">Current Price:</span>
+                        <span class="current-price">{card['Price']}</span>
+                    </div>
+                    <div class="card-grid">                    
+                        <div class="card-data">
+                            <span class="card-label">Min Price:</span>
+                            <span class="card-value">{card['Min']}</span>
+                        </div>
+                        
+                        <div class="card-data">
+                            <span class="card-label">Max Price:</span>
+                            <span class="card-value">{card['Max']}</span>
+                        </div>
+                        
+                        <div class="card-data">
+                            <span class="card-label">Average:</span>
+                            <span class="card-value">{card['Average']}</span>
+                        </div>
+                        
+                        <div class="card-data">
+                            <span class="card-label">Median:</span>
+                            <span class="card-value">{card['Median']}</span>
+                        </div>
+                    </div>
+                
+                    <a href="{card['Card Link']}" class="card-button">View Details</a>
+                </div>
+            </div>
+        </div>
+        """
+
+    # Replace the placeholder in the template with the generated cards HTML
+    final_html = template.replace('<!-- CARD_LIST_PLACEHOLDER -->', cards_html)
+
+    # Now you can use final_html with your email sending library
+    body = final_html
+    
+    # Set up the MIME
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = subject
+
+    # Attach the body with HTML format
+    msg.attach(MIMEText(body, 'html'))
+
+    # Create SMTP session
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        server.starttls()  # Enable security
+        server.login(sender_email, sender_password)  # Login with your email and password
+        server.send_message(msg)  # Send the email
+
 
 def clean_set_name(set_name):
     return re.sub(r'^\d{4}(-\d{2})?\s*', '', set_name).strip()
@@ -142,7 +224,6 @@ try:
                 print(title)
                 price_span = item.find('span', class_='s-item__price')
                 price_text = price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
-
                 price = get_price(price_text)
 
                 link = item.find('a', class_='s-item__link')['href']
@@ -267,6 +348,15 @@ try:
 
 except KeyboardInterrupt:
     print(f"\nData collection interrupted. Saving collected data...")
+
+undervalued_cards = [card for card in data if card.get('Undervalued Status') == 'Undervalued']
+
+if undervalued_cards:
+    send_email(undervalued_cards)
+    print(f"Email sent with {len(undervalued_cards)} undervalued cards.")
+else:
+    print("No undervalued cards found.")
+
 
 # Save final collected data for the sport
 df_final = pd.DataFrame(data)
