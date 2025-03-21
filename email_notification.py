@@ -41,7 +41,8 @@ def send_email(undervalued_cards):
                     <h3 class="card-title">
                         <a href="{card['Card Link']}">{card['Title']}</a>
                     </h3>
-                
+                    <!-- Conditionally display Ending Date if Buying Type is Auction -->
+                    {"<div class='end-date'>Ends in " + card['Ending Date'] + "</div>" if card['Buying Type'] == 'Auction' else ''}
                     <div class="card-data">
                         <span class="card-label">Current Price:</span>
                         <span class="current-price">{card['Price']}</span>
@@ -67,7 +68,7 @@ def send_email(undervalued_cards):
                             <span class="card-value">{card['Median']}</span>
                         </div>
                     </div>
-                
+
                     <a href="{card['Card Link']}" class="card-button">View Details</a>
                 </div>
             </div>
@@ -232,13 +233,26 @@ try:
 
 
                 # Extract Image URL
-                image_element = item.find('div', class_='s-item__image')
+                image_container = product_soup.find('div', {'data-testid': 'ux-image-carousel-container'})
+                image_element = image_container.find('div', {'data-idx': '0'})
                 image_url = ""
                 if image_element:
                     img_tag = image_element.find('img')
                     if img_tag:
                         image_url = img_tag['src']
-
+                print(image_url)
+                end_date_element = product_soup.find('div', class_='x-end-time')
+                end_date = None
+                if end_date_element:
+                    end_date = end_date_element.get_text(strip=True)
+                    days_hours = end_date.replace("Ends in", "").strip()
+                    # Extract days and hours
+                    days = int(re.search(r'(\d+)d', days_hours).group(1)) if 'd' in days_hours else 0
+                    hours = int(re.search(r'(\d+)h', days_hours).group(1)) if 'h' in days_hours else 0
+                    
+                    ending_datetime = listing_date + timedelta(days=days, hours=hours)
+                    end_date = f"{days_hours} - {ending_datetime.strftime('%A, %I:%M %p')}"
+                print(end_date)
                 # Initialize Buying Type
                 buying_type = "Buy It Now"  # Default to "Buy It Now"
 
@@ -321,6 +335,7 @@ try:
                     "Grade": grade,
                     "Card Link": link,
                     "Listing Date": listing_date.strftime('%Y-%m-%d %H:%M:%S'),  # Format as needed
+                    "Ending Date": end_date,
                     "Image URL": image_url,
                     "Min": f"${min_price}",
                     "Max": f"${max_price}",
