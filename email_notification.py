@@ -108,8 +108,8 @@ def print_elapsed_time():
 elapsed_time_thread = threading.Thread(target=print_elapsed_time, daemon=True)
 elapsed_time_thread.start()
 
-# Ensure the directory exists for the current sport
-output_dir = os.path.join("Newly")
+# Ensure the directory exists for the output
+output_dir = "C:/eBay_undervalued"
 os.makedirs(output_dir, exist_ok=True)
 
 page = 1
@@ -118,6 +118,7 @@ data = []
 # Get today's and yesterday's date
 today = datetime.now().date()
 yesterday = today - timedelta(days=1)  # Define yesterday
+yesterday_date_str = yesterday.strftime('%Y-%m-%d')
 # Calculate the target date (7 days ago)
 days_ago = today - timedelta(days=60)
 
@@ -344,11 +345,11 @@ try:
                     "Compared Items": compared_items,
                     "Undervalued Status": undervalued_status
                 })
-        # Save the collected data for the current page
-        df = pd.DataFrame(data)
-        page_filename = os.path.join(output_dir, f"New_Data_Page_{page}.xlsx")
-        df.to_excel(page_filename, index=False)
-        print(f"New Data - Page {page} saved to '{page_filename}'.")
+        # # Save the collected data for the current page
+        # df = pd.DataFrame(data)
+        # page_filename = os.path.join(output_dir, f"New_Data_Page_{page}.xlsx")
+        # df.to_excel(page_filename, index=False)
+        # print(f"New Data - Page {page} saved to '{page_filename}'.")
 
         page_end_time = time.time()
         page_duration = page_end_time - page_start_time
@@ -375,7 +376,7 @@ else:
 
 # Save final collected data for the sport
 df_final = pd.DataFrame(data)
-final_filename = os.path.join(output_dir, f"New_Data.xlsx")
+final_filename = os.path.join(output_dir, f"{yesterday_date_str}.xlsx")
 df_final.to_excel(final_filename, index=False)
 print(f"New Data saved to '{final_filename}'.")
 
