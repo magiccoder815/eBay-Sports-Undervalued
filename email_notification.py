@@ -213,7 +213,7 @@ try:
                 listing_date = datetime.strptime(listing_date_text, '%Y %b %d %H:%M')
             print(listing_date.date())
             # Check if the listing date is today or yesterday
-            if listing_date.date() < today:
+            if listing_date.date() < yesterday:
                 print("Listing date is not today or yesterday. Stopping the scraping process.")
                 break  # Stop scraping if the listing date is not today or yesterday
             else:
