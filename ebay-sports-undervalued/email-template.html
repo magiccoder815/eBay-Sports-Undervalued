@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Undervalued Cards Report</title>
+  <style>
+    /* Reset styles for email clients */
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    /* Container styles */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #f9f9f9;
+    }
+    
+    /* Header styles */
+    .header {
+      background: linear-gradient(to right, #1a56db, #1e429f);
+      padding: 24px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    
+    .header h1 {
+      color: white;
+      margin: 0;
+      font-size: 24px;
+    }
+    
+    .header p {
+      color: #bfdbfe;
+      margin: 8px 0 0;
+      font-size: 16px;
+    }
+    
+    /* Content styles */
+    .content {
+      background-color: white;
+      padding: 24px;
+      border-left: 1px solid #e5e7eb;
+      border-right: 1px solid #e5e7eb;
+    }
+    
+    .intro {
+      color: #4b5563;
+      margin-bottom: 24px;
+    }
+    
+    /* Card styles */
+    .card-list {
+      margin-top: 20px;
+    }
+    
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease-in-out;
+    }
+    
+    .card:hover {
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transform: scale(1.05);
+    }
+    
+    .card-inner {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .card-image {
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .card-image img {
+      border-radius: 10px;
+      width: 120px;
+      height: 200px;
+    }
+    
+    .card-details {
+      padding: 16px;
+    }
+    
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e429f;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    
+    .card-title a {
+      color: #1e429f;
+      text-decoration: none;
+    }
+    
+    .card-title a:hover {
+      text-decoration: underline;
+    }
+    
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      margin-bottom: 16px;
+    }
+    
+    .card-data {
+      display: flex;
+      align-items: center;
+    }
+    
+    .card-label {
+      color: #6b7280;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+    
+    .card-value {
+      font-weight: 500;
+      color: #111827;
+    }
+    .current-price {
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .card-button {
+      display: inline-block;
+      background-color: #1a56db;
+      color: white !important; 
+      padding: 8px 16px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+    
+    .card-button:hover {
+      background-color: #1e429f;
+    }
+    
+    /* Footer styles */
+    .footer {
+      background-color: #f9fafb;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid #e5e7eb;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+    }
+    
+    .footer p {
+      color: #6b7280;
+      font-size: 14px;
+      margin: 0 0 16px;
+    }
+    
+    .footer-links {
+      margin: 16px 0;
+    }
+    
+    .footer-links a {
+      color: #1a56db;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 0 8px;
+    }
+    
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+    
+    .copyright {
+      color: #9ca3af;
+      font-size: 12px;
+      margin-top: 16px;
+    }
+    
+    /* Responsive styles */
+    @media (min-width: 640px) {
+      .card-inner {
+        flex-direction: row;
+      }
+      
+      .card-image {
+        width: 33%;
+      }
+      
+      .card-details {
+        width: 67%;
+      }
+      
+      .header h1 {
+        font-size: 28px;
+      }
+      .end-date {
+        text-align: right;
+        font-size: 14px;
+        padding-bottom: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Email Header -->
+    <div class="header">
+      <h1>Undervalued Cards Daily Report</h1>
+      <p>Discover cards with potential investment value</p>
+    </div>
+    
+    <!-- Email Body -->
+    <div class="content">
+      <p class="intro">
+        Here are recent top undervalued cards that show promising investment potential based on our market analysis:
+      </p>
+      
+      <div class="card-list">
+        <!-- CARD_LIST_PLACEHOLDER -->
+      </div>
+    </div>
+    
+    <!-- Email Footer -->
+    <div class="footer">
+      <p>
+        This report is generated based on market analysis and historical data.
+        Prices may fluctuate based on market conditions.
+      </p>
+      <div class="footer-links">
+        <a href="#">Unsubscribe</a>
+        <a href="#">View Online</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+      <p class="copyright">
+        &copy; 2025 Card Market Analytics. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

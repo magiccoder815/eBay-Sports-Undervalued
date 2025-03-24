@@ -137,15 +137,16 @@ def fetch_price_data(title, buying_type):
         price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_BIN=1"
     else:  # Auction
         price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_Auction=1"
-
+    print(price_url)
     response = requests.get(price_url)
     if response.status_code != 200:
         print(f"Failed to retrieve price data: {response.status_code}")
         return 0.0, 0.0, 0.0, 0.0, 0
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    
     sold_items_container = soup.find('ul', class_='srp-results srp-list clearfix')
+    if not sold_items_container:
+        return 0.0, 0.0, 0.0, 0.0, 0
     sold_items = sold_items_container.find_all("li", attrs={"data-view": re.compile(r"^mi:1686\|iid:(\d+)$")})
     sold_prices = []
 
@@ -215,7 +216,7 @@ try:
             print(listing_date)
             # Check if the listing date is today or yesterday
             if listing_date.date() < yesterday:
-                print("Listing date is not today or yesterday. Stopping the scraping process.")
+                print("Listing date is yesterday. Stopping the scraping process.")
                 break  # Stop scraping if the listing date is not today or yesterday
             else:
                 items_count += 1
@@ -236,12 +237,15 @@ try:
 
                 # Extract Image URL
                 image_container = product_soup.find('div', {'data-testid': 'ux-image-carousel-container'})
-                image_element = image_container.find('div', {'data-idx': '0'})
                 image_url = ""
-                if image_element:
-                    img_tag = image_element.find('img')
-                    if img_tag:
-                        image_url = img_tag['src']
+                if image_container:
+                    image_element = image_container.find('div', {'data-idx': '0'})
+                    if image_element:
+                        img_tag = image_element.find('img')
+                        if img_tag:
+                            image_url = img_tag['src']
+                else:
+                    print("Image container not found.")
                 print(image_url)
                 end_date_element = product_soup.find('div', class_='x-end-time')
                 end_date = None
