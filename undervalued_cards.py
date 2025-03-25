@@ -13,7 +13,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 # Define the base URL template
-base_url = "https://www.ebay.com/sch/i.html?_oaa=1&_dcat=212&_udlo=100&_fsrp=1&_from=R40&Grade=8%7C8%252E5%7C9%7C9%252E5%7C10%7C%21&_ipg=240&Sport=Baseball%7CFootball%7CBasketball&_sacat=64482&_nkw=PSA&_sop=10&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2025&LH_PrefLoc=2&rt=nc&LH_All=1&_pgn={}"
+base_url = "https://www.ebay.com/sch/i.html?_oaa=1&_dcat=212&_udlo=100&_fsrp=1&_from=R40&Grade=8%7C8%252E5%7C9%7C9%252E5%7C10%7C%21&_ipg=240&Sport=Baseball%7CFootball%7CBasketball&_sacat=64482&_nkw=PSA&_sop=1&Season=2020%7C2020%252D21%7C2021%7C2021%252D22%7C2022%7C2022%252D23%7C2023%7C2023%252D24%7C2024%7C2025&LH_PrefLoc=2&rt=nc&LH_Auction=1&_pgn={}"
 
 start_time = time.time()
 
@@ -24,7 +24,7 @@ os.makedirs(output_dir, exist_ok=True)
 def send_email(undervalued_cards):
     sender_email = "igorkovalevych94@gmail.com"  # Replace with your email
     sender_password = "gzpp wrgf xtzw agoj"  # Replace with your email password
-    receiver_email = "sternmatt13@gmail.com"
+    receiver_email = "superphantom2035@gmail.com"
     
     # Create the email content
     subject = "Undervalued Cards Alert"
@@ -118,6 +118,7 @@ data = []
 
 # Get today's and yesterday's date
 today = datetime.now().date()
+today_date_str = today.strftime('%Y-%m-%d')
 yesterday = today - timedelta(days=1)  # Define yesterday
 yesterday_date_str = yesterday.strftime('%Y-%m-%d')
 # Calculate the target date (7 days ago)
@@ -204,19 +205,26 @@ try:
 
         for item in items:
             # Extract Listing Date
-            listing_date_element = item.find('span', class_='s-item__dynamic s-item__listingDate')
-            listing_date = ""
-            if listing_date_element:
-                listing_date_text = listing_date_element.find('span', class_='BOLD').get_text(strip=True)
-                current_year = datetime.now().year
-                if len(listing_date_text.split('-')) == 2:  # Format is likely "Mar-14"
-                    listing_date_text = f"{current_year}-{listing_date_text}"  # Append current year
-                    listing_date_text = listing_date_text.replace('-', ' ')  # Change to "2025 Mar 14"
-                listing_date = datetime.strptime(listing_date_text, '%Y %b %d %H:%M')
-            print(listing_date)
+            # listing_date_element = item.find('span', class_='s-item__dynamic s-item__listingDate')
+            # listing_date = ""
+            # if listing_date_element:
+            #     listing_date_text = listing_date_element.find('span', class_='BOLD').get_text(strip=True)
+            #     current_year = datetime.now().year
+            #     if len(listing_date_text.split('-')) == 2:  # Format is likely "Mar-14"
+            #         listing_date_text = f"{current_year}-{listing_date_text}"  # Append current year
+            #         listing_date_text = listing_date_text.replace('-', ' ')  # Change to "2025 Mar 14"
+            #     listing_date = datetime.strptime(listing_date_text, '%Y %b %d %H:%M')
+            # print(listing_date)
             # Check if the listing date is today or yesterday
-            if listing_date.date() < yesterday:
-                print("Listing date is yesterday. Stopping the scraping process.")
+
+            end_date_element = item.find('span', class_='s-item__time-end')
+            end_date = None
+            if end_date_element:
+                end_date = end_date_element.get_text(strip=True).replace("(", "").replace(")", "")
+            print(end_date)
+
+            if "Today" not in end_date:
+                print("There is no today-ending items. Stopping the scraping process.")
                 break  # Stop scraping if the listing date is not today or yesterday
             else:
                 items_count += 1
@@ -231,6 +239,7 @@ try:
                 price = get_price(price_text)
 
                 link = item.find('a', class_='s-item__link')['href']
+
                 product_response = requests.get(link)
                 product_soup = BeautifulSoup(product_response.text, 'html.parser')
 
@@ -247,18 +256,7 @@ try:
                 else:
                     print("Image container not found.")
                 print(image_url)
-                end_date_element = product_soup.find('div', class_='x-end-time')
-                end_date = None
-                if end_date_element:
-                    end_date = end_date_element.get_text(strip=True)
-                    days_hours = end_date.replace("Ends in", "").strip()
-                    # Extract days and hours
-                    days = int(re.search(r'(\d+)d', days_hours).group(1)) if 'd' in days_hours else 0
-                    hours = int(re.search(r'(\d+)h', days_hours).group(1)) if 'h' in days_hours else 0
-                    
-                    ending_datetime = listing_date + timedelta(days=days, hours=hours)
-                    end_date = f"{days_hours} - {ending_datetime.strftime('%A, %I:%M %p')}"
-                print(end_date)
+
                 # Initialize Buying Type
                 buying_type = "Buy It Now"  # Default to "Buy It Now"
 
@@ -340,7 +338,7 @@ try:
                     "Card Number": card_number,
                     "Grade": grade,
                     "Card Link": link,
-                    "Listing Date": listing_date.strftime('%Y-%m-%d %H:%M:%S'),  # Format as needed
+                    "Listing Date": today_date_str,  # Format as needed
                     "Ending Date": end_date,
                     "Image URL": image_url,
                     "Min": f"${min_price}",
@@ -381,7 +379,7 @@ else:
 
 # Save final collected data for the sport
 df_final = pd.DataFrame(data)
-final_filename = os.path.join(output_dir, f"{yesterday_date_str}.xlsx")
+final_filename = os.path.join(output_dir, f"{today_date_str}.xlsx")
 df_final.to_excel(final_filename, index=False)
 print(f"New Data saved to '{final_filename}'.")
 
