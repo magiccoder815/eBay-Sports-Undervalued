@@ -24,7 +24,7 @@ os.makedirs(output_dir, exist_ok=True)
 def send_email(undervalued_cards):
     sender_email = "igorkovalevych94@gmail.com"  # Replace with your email
     sender_password = "gzpp wrgf xtzw agoj"  # Replace with your email password
-    receiver_email = "robertwalkerlee93@gmail.com"
+    receiver_email = "superphantom2035@gmail.com"
     
     # Create the email content
     subject = "Undervalued Cards Alert"
@@ -132,13 +132,12 @@ def get_price(price_text):
         price = 0.99  # Set default value if no match is found
     return price
 
-def fetch_price_data(title, buying_type):
+def fetch_price_data(title, buying_type, price):
     encoded_title = quote(title)
     if buying_type == "Buy It Now":
-        price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_BIN=1"
+        price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_BIN=1&_sop=12&_ipg=240"
     else:  # Auction
-        price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_Auction=1"
-    print(price_url)
+        price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_Auction=1&_sop=12&_ipg=240"
     response = requests.get(price_url)
     if response.status_code != 200:
         print(f"Failed to retrieve price data: {response.status_code}")
@@ -172,7 +171,8 @@ def fetch_price_data(title, buying_type):
                 sold_price_span = item.find('span', class_='s-item__price')
                 sold_price_text = sold_price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
                 sold_price = get_price(sold_price_text)
-                sold_prices.append(sold_price)
+                if 0.5*price <= sold_price <= 1.5*price:
+                    sold_prices.append(sold_price)
 
     if not sold_prices:
         return 0.0, 0.0, 0.0, 0.0, 0
@@ -220,20 +220,16 @@ try:
             # Define the time window
             now = datetime.now()
             today_8pm = now.replace(hour=20, minute=0, second=0, microsecond=0)
-            # tomorrow_8pm = today_8pm + timedelta(days=1)
             tomorrow_8pm = today_8pm + timedelta(days=1)
-            tomorrow_8pm = tomorrow_8pm.replace(hour=1, minute=0, second=0, microsecond=0)
-            print("tomorrow", tomorrow_8pm)
-            print('today', today_8pm)
+            # tomorrow_8pm = today_8pm + timedelta(days=1)
+            # tomorrow_8pm = tomorrow_8pm.replace(hour=1, minute=0, second=0, microsecond=0)
             # Mapping for weekdays to determine the correct date
             weekday_map = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
 
             end_date_element = item.find('span', class_='s-item__time-end')
             end_datetime = None
-            print("end_data_element", end_date_element);
             if end_date_element:
                 end_date_text = end_date_element.get_text(strip=True).replace("(", "").replace(")", "")
-                print("end_data_text", end_date_text)
                 # Case 1: "Today 01:22 PM"
                 if end_date_text.startswith("Today"):
                     time_match = re.search(r'(\d{1,2}:\d{2} [APM]{2})', end_date_text)
@@ -257,7 +253,6 @@ try:
                             end_datetime = datetime.strptime(time_str, "%I:%M %p").replace(
                                 year=target_date.year, month=target_date.month, day=target_date.day
                             )
-                print("end_datetime", end_datetime)
                 # Validate time range (between today 8 PM and tomorrow 8 PM)
                 if end_datetime and today_8pm <= end_datetime <= tomorrow_8pm:
                         print(f"Valid item ending at: {end_datetime}")
@@ -273,7 +268,6 @@ try:
                         price_span = item.find('span', class_='s-item__price')
                         price_text = price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
                         price = get_price(price_text)
-                        print("price", price);
                         link = item.find('a', class_='s-item__link')['href']
 
                         product_response = requests.get(link)
@@ -353,7 +347,7 @@ try:
 
                         # Fetch price data
                         print(price)
-                        min_price, max_price, avg_price, median_price, compared_items = fetch_price_data(title, buying_type)
+                        min_price, max_price, avg_price, median_price, compared_items = fetch_price_data(title, buying_type, price)
 
                         undervalued_status = ""
                         if min_price > 0 and avg_price > 0 and median_price > 0:
