@@ -24,7 +24,7 @@ os.makedirs(output_dir, exist_ok=True)
 def send_email(undervalued_cards):
     sender_email = "igorkovalevych94@gmail.com"  # Replace with your email
     sender_password = "gzpp wrgf xtzw agoj"  # Replace with your email password
-    receiver_email = "superphantom2035@gmail.com"
+    receiver_email = "sternmatt13@gmail.com"
     
     # Create the email content
     subject = "Undervalued Cards Alert"
