@@ -21,17 +21,109 @@ start_time = time.time()
 output_dir = "C:/eBay_undervalued"
 os.makedirs(output_dir, exist_ok=True)
 
-def send_email(undervalued_cards):
+def fetch_product_details(item):
+    title_element = item.find('div', class_='s-item__title')
+    title = ""
+    if title_element:
+        title_text = " ".join(span.get_text(strip=True) for span in title_element.find_all('span'))
+        title = re.sub(r'New Listing\s*', '', title_text).strip()
+    print(title)
+
+    price_span = item.find('span', class_='s-item__price')
+    price_text = price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
+    price = get_price(price_text)
+    link = item.find('a', class_='s-item__link')['href']
+
+    product_response = requests.get(link)
+    product_soup = BeautifulSoup(product_response.text, 'html.parser')
+
+    # Extract Image URL
+    image_container = product_soup.find('div', {'data-testid': 'ux-image-carousel-container'})
+    image_url = ""
+    if image_container:
+        image_element = image_container.find('div', {'data-idx': '0'})
+        if image_element:
+            img_tag = image_element.find('img')
+            if img_tag:
+                image_url = img_tag['src']
+    else:
+        print("Image container not found.")
+    print(image_url)
+
+    # Initialize Buying Type
+    buying_type = "Buy It Now"  # Default to "Buy It Now"
+
+    # Check for Auction
+    if product_soup.find('div', {'data-testid': 'x-bid-action'}):
+        buying_type = "Auction"
+
+    # Fetch card details
+    sport_val = season_year = set_name = variation = player_name = card_number = grade = ""
+
+    # Extract specifications
+    specifications_section = product_soup.find('section', class_='product-spectification')
+    if specifications_section:
+        details = specifications_section.find_all('li')
+        for detail in details:
+            name = detail.find('div', class_='s-name')
+            value = detail.find('div', class_='s-value')
+            if name and value:
+                name_text = name.get_text(strip=True)
+                value_text = value.get_text(strip=True)
+                if name_text == "Sport":
+                    sport_val = value_text
+                elif name_text in ["Season", "Year"]:
+                    season_year = value_text
+                elif name_text == "Set":
+                    set_name = clean_set_name(value_text)
+                elif name_text == "Parallel/Variety":
+                    variation = value_text
+                elif name_text in ["Player/Athlete", "Player"]:
+                    player_name = value_text
+                elif name_text == "Card Number":
+                    card_number = value_text 
+                    # card_number = value
+                elif name_text == "Grade":
+                    grade = value_text
+
+    # Alternatively, check another section for specifications
+    specifications_section_new = product_soup.find('div', {'data-testid': 'ux-layout-section-evo'})
+    if specifications_section_new:
+        details = specifications_section_new.find_all('dl')
+        for detail in details:
+            label = detail.find('dt').get_text(strip=True) if detail.find('dt') else ""
+            value = detail.find('dd').get_text(strip=True) if detail.find('dd') else ""
+
+            if label == "Sport":
+                sport_val = value
+            elif label in ["Season", "Year"]:
+                season_year = value
+            elif label == "Set":
+                set_name = clean_set_name(value)
+            elif label == "Parallel/Variety":
+                variation = value
+            elif label in ["Player/Athlete", "Player"]:
+                player_name = value
+            elif label == "Card Number":
+                card_number = value 
+            elif label == "Grade":
+                grade = value
+    
+    return buying_type, sport_val, season_year, set_name, variation, player_name, card_number, grade, title, price, link, image_url
+
+def send_email(undervalued_cards, status):
     sender_email = "igorkovalevych94@gmail.com"  # Replace with your email
     sender_password = "gzpp wrgf xtzw agoj"  # Replace with your email password
     receiver_email = "sternmatt13@gmail.com"
-    
+    # sternmatt13
     # Create the email content
-    subject = "Undervalued Cards Alert"
+    if status == "Old" :
+        subject = "Undervalued Cards Alert(Old)"
+    else:
+        subject = "Undervalued Cards Alert"
     # Load the HTML template
     with open('C:/ebay-sports-undervalued/email-template.html', 'r') as file:
         template = file.read()
-
     # Generate the cards HTML
     cards_html = ""
     for card in undervalued_cards:
@@ -78,11 +170,15 @@ def send_email(undervalued_cards):
             </div>
         </div>
         """
-
+    # print(cards_html)
     # Replace the placeholder in the template with the generated cards HTML
     final_html = template.replace('<!-- CARD_LIST_PLACEHOLDER -->', cards_html)
-
+    if status == "Old" :
+        final_html = final_html.replace('<!-- Card header -->', "Undervalued Cards Daily Report(Old)")
+    else:
+        final_html = final_html.replace('<!-- Card header -->', "Undervalued Cards Daily Report")
     # Now you can use final_html with your email sending library
+    # print(final_html)
     body = final_html
     
     # Set up the MIME
@@ -115,6 +211,7 @@ elapsed_time_thread.start()
 
 page = 1
 data = []
+data_l = []
 
 # Get today's and yesterday's date
 today = datetime.now().date()
@@ -134,60 +231,46 @@ def get_price(price_text):
 
 def fetch_price_data(title, buying_type, price):
     encoded_title = quote(title)
+    
     if buying_type == "Buy It Now":
         price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_BIN=1&_sop=12&_ipg=240"
     else:  # Auction
         price_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_title}&_sacat=0&_from=R40&LH_Complete=1&LH_Sold=1&LH_PrefLoc=2&rt=nc&LH_Auction=1&_sop=12&_ipg=240"
+
     response = requests.get(price_url)
     if response.status_code != 200:
         print(f"Failed to retrieve price data: {response.status_code}")
-        return 0.0, 0.0, 0.0, 0.0, 0
+        return 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0  # Ensure 10 values are returned
 
     soup = BeautifulSoup(response.text, 'html.parser')
     sold_items_container = soup.find('ul', class_='srp-results srp-list clearfix')
     if not sold_items_container:
-        return 0.0, 0.0, 0.0, 0.0, 0
+        return 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0  # Ensure 10 values are returned
+
+
     sold_items = sold_items_container.find_all("li", attrs={"data-view": re.compile(r"^mi:1686\|iid:(\d+)$")})
     sold_prices = []
+    sold_prices_L = []
 
     for item in sold_items:
-        sold_date_element = item.find('span', class_='s-item__caption--signal POSITIVE')
-        sold_date_text = ""
-        if sold_date_element:
-            sold_date_text = sold_date_element.get_text(strip=True)
-
-        if sold_date_text:
-            sold_date_text = sold_date_text.replace("Sold ", "").strip()  # Strip whitespace
+        sold_price_span = item.find('span', class_='s-item__price')
+        if sold_price_span:
+            sold_price_text = sold_price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
             try:
-                sold_date = datetime.strptime(sold_date_text, '%b %d, %Y')
-            except ValueError:
-                try:
-                    sold_date = datetime.strptime(sold_date_text, '%d %b %Y')
-                except ValueError:
-                    print(f"Date format error for sold date: {sold_date_text}")
-                    continue
-
-            if days_ago <= sold_date.date() <= today:
-                sold_price_span = item.find('span', class_='s-item__price')
-                sold_price_text = sold_price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
-                sold_price = get_price(sold_price_text)
-                if 0.5*price <= sold_price <= 1.5*price:
+                sold_price = float(sold_price_text)
+                if 0.4 * price <= sold_price <= 1.7 * price:
                     sold_prices.append(sold_price)
+                else:
+                    sold_prices_L.append(sold_price)
+            except ValueError:
+                continue
 
-    if not sold_prices:
-        return 0.0, 0.0, 0.0, 0.0, 0
+    def calculate_stats(prices):
+        if not prices:
+            return 0.0, 0.0, 0.0, 0.0, 0
+        return min(prices), max(prices), sum(prices) / len(prices), np.median(prices), len(prices)
 
-    # # Remove min and max prices
-    # sold_prices.remove(min(sold_prices))
-    # sold_prices.remove(max(sold_prices))
-
-    # Recalculate min, max, average, and median prices
-    new_min_price = min(sold_prices)
-    new_max_price = max(sold_prices)
-    new_avg_price = sum(sold_prices) / len(sold_prices)
-    new_median_price = np.median(sold_prices)
-
-    return new_min_price, new_max_price, new_avg_price, new_median_price, len(sold_prices)
+    return (*calculate_stats(sold_prices), *calculate_stats(sold_prices_L))
 
 try:
     while True:
@@ -257,104 +340,22 @@ try:
                 if end_datetime and today_8pm <= end_datetime <= tomorrow_8pm:
                         print(f"Valid item ending at: {end_datetime}")
 
-                        # Extract item details
-                        title_element = item.find('div', class_='s-item__title')
-                        title = ""
-                        if title_element:
-                            title_text = " ".join(span.get_text(strip=True) for span in title_element.find_all('span'))
-                            title = re.sub(r'New Listing\s*', '', title_text).strip()
-                        print(title)
-
-                        price_span = item.find('span', class_='s-item__price')
-                        price_text = price_span.get_text(strip=True).replace('$', '').replace(',', '').strip()
-                        price = get_price(price_text)
-                        link = item.find('a', class_='s-item__link')['href']
-
-                        product_response = requests.get(link)
-                        product_soup = BeautifulSoup(product_response.text, 'html.parser')
-
-
-                        # Extract Image URL
-                        image_container = product_soup.find('div', {'data-testid': 'ux-image-carousel-container'})
-                        image_url = ""
-                        if image_container:
-                            image_element = image_container.find('div', {'data-idx': '0'})
-                            if image_element:
-                                img_tag = image_element.find('img')
-                                if img_tag:
-                                    image_url = img_tag['src']
-                        else:
-                            print("Image container not found.")
-                        print(image_url)
-
-                        # Initialize Buying Type
-                        buying_type = "Buy It Now"  # Default to "Buy It Now"
-
-                        # Check for Auction
-                        if product_soup.find('div', {'data-testid': 'x-bid-action'}):
-                            buying_type = "Auction"
-
-                        # Fetch card details
-                        sport_val = season_year = set_name = variation = player_name = card_number = grade = ""
-
-                        # Extract specifications
-                        specifications_section = product_soup.find('section', class_='product-spectification')
-                        if specifications_section:
-                            details = specifications_section.find_all('li')
-                            for detail in details:
-                                name = detail.find('div', class_='s-name')
-                                value = detail.find('div', class_='s-value')
-                                if name and value:
-                                    name_text = name.get_text(strip=True)
-                                    value_text = value.get_text(strip=True)
-                                    if name_text == "Sport":
-                                        sport_val = value_text
-                                    elif name_text in ["Season", "Year"]:
-                                        season_year = value_text
-                                    elif name_text == "Set":
-                                        set_name = clean_set_name(value_text)
-                                    elif name_text == "Parallel/Variety":
-                                        variation = value_text
-                                    elif name_text in ["Player/Athlete", "Player"]:
-                                        player_name = value_text
-                                    elif name_text == "Card Number":
-                                        card_number = value_text 
-                                    elif name_text == "Grade":
-                                        grade = value_text
-
-                        # Alternatively, check another section for specifications
-                        specifications_section_new = product_soup.find('div', {'data-testid': 'ux-layout-section-evo'})
-                        if specifications_section_new:
-                            details = specifications_section_new.find_all('dl')
-                            for detail in details:
-                                label = detail.find('dt').get_text(strip=True) if detail.find('dt') else ""
-                                value = detail.find('dd').get_text(strip=True) if detail.find('dd') else ""
-
-                                if label == "Sport":
-                                    sport_val = value
-                                elif label in ["Season", "Year"]:
-                                    season_year = value
-                                elif label == "Set":
-                                    set_name = clean_set_name(value)
-                                elif label == "Parallel/Variety":
-                                    variation = value
-                                elif label in ["Player/Athlete", "Player"]:
-                                    player_name = value
-                                elif label == "Card Number":
-                                    card_number = value
-                                elif label == "Grade":
-                                    grade = value
-
-                        # Fetch price data
-                        print(price)
-                        min_price, max_price, avg_price, median_price, compared_items = fetch_price_data(title, buying_type, price)
+                        buying_type, sport_val, season_year, set_name, variation, player_name, card_number, grade, title, price, link, image_url = fetch_product_details(item)
+                        min_price, max_price, avg_price, median_price, compared_items, min_price_l, max_price_l, avg_price_l, median_price_l, compared_items_l = fetch_price_data(title, buying_type, price)
 
                         undervalued_status = ""
                         if min_price > 0 and avg_price > 0 and median_price > 0:
                             if price < 0.8 * median_price:
                                 undervalued_status = "Undervalued"
+                                
+                        undervalued_status_l = ""
+                        if min_price_l > 0 and avg_price_l > 0 and median_price_l > 0:
+                            if price < 0.8 * median_price_l:
+                                undervalued_status_l = "Undervalued"
                         print(price, min_price, max_price, avg_price, median_price, compared_items, undervalued_status)
-                        print("-------------------------------------------------------------")
+                        print("----------------------------value---------------------------------")
+                        print(price, min_price_l, max_price_l, avg_price_l, median_price_l, compared_items_l, undervalued_status_l)
+                        print("------------------------------all-------------------------------")
 
                         data.append({
                             "Title": title,
@@ -377,6 +378,31 @@ try:
                             "Median": f"${median_price}",
                             "Compared Items": compared_items,
                             "Undervalued Status": undervalued_status
+                            # "status":"new"
+                        })
+                        
+                        data_l.append({
+                            "Title": title,
+                            "Buying Type": buying_type,
+                            "Sport": sport_val,
+                            "Season Year": season_year,
+                            "Set": set_name,
+                            "Variation": variation,
+                            "Player Name": player_name,
+                            "Price": f"${price}",
+                            "Card Number": card_number,
+                            "Grade": grade,
+                            "Card Link": link,
+                            "Listing Date": today_date_str,  # Format as needed
+                            "Ending Date": end_date_text,
+                            "Image URL": image_url,
+                            "Min": f"${min_price_l}",
+                            "Max": f"${max_price_l}",
+                            "Average": f"${avg_price_l:.2f}",
+                            "Median": f"${median_price_l}",
+                            "Compared Items": compared_items_l,
+                            "Undervalued Status": undervalued_status_l,
+                            # "status":"old"
                         })
                 elif end_datetime > tomorrow_8pm:
                     print('limit date')
@@ -404,12 +430,22 @@ try:
 
 except KeyboardInterrupt:
     print(f"\nData collection interrupted. Saving collected data...")
+    
+    print(f"\nData collection interrupted. Saving collected data-l...")
 
 undervalued_cards = [card for card in data if card.get('Undervalued Status') == 'Undervalued']
 
+undervalued_cards_l = [card_l for card_l in data_l if card_l.get('Undervalued Status') == 'Undervalued']
+
 if undervalued_cards:
-    send_email(undervalued_cards)
+    send_email(undervalued_cards, "new")
     print(f"Email sent with {len(undervalued_cards)} undervalued cards.")
+else:
+    print("No undervalued cards found.")
+    
+if undervalued_cards_l:
+    send_email(undervalued_cards_l, "Old")
+    print(f"Email sent with {len(undervalued_cards_l)} undervalued cards.")
 else:
     print("No undervalued cards found.")
 
